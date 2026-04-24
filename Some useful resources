@@ -1,6 +1,11 @@
 These projects is based on Standford's CS231n/CS224W courses: https://cs231n.github.io and https://web.stanford.edu/class/cs224w/index.html#content
 All credits goes to the courses designers! 
 
-We start by introducing crutial tools: PyTorch & NumPy and PyG: 
+Very good lecture notes on ML & ML on graphs as reference:
+https://archives.leni.sh/stanford/CS224w.pdf
+https://cs229.stanford.edu/main_notes.pdf
+
+
+For understanding GNN, we start by introducing some crutial tools: PyTorch & NumPy and PyG: 
 https://docs.pytorch.org/tutorials/beginner/basics/tensorqs_tutorial.html
 https://pytorch-geometric.readthedocs.io/en/latest/get_started/introduction.html
