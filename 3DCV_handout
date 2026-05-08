@@ -1,0 +1,305 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[most]{tcolorbox} 
+\usepackage{amsmath, amssymb, amsthm}
+\usepackage{bm}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{enumitem}
+
+% --- 1. Notation 自动化配置 ---
+\usepackage[intoc]{nomencl}
+\makenomenclature
+\renewcommand{\nomname}{Notation}
+
+% --- 2. 彩色框定义 (tcolorbox) ---
+% 添加了 coltitle=black 确保标题是黑色
+\newtcbtheorem[number within=section]{defbox}{Definition}{
+    colback=green!5, colframe=green!50!black, 
+    coltitle=black, % <--- 标题颜色改为黑色
+    fonttitle=\bfseries,
+    attach title to upper, after title={:\ },
+    lower separated=false,
+    before skip=10pt, after skip=10pt
+}{def}
+
+\newtcbtheorem[number within=section]{lembox}{Lemma}{
+    colback=yellow!5, colframe=orange!80!yellow, 
+    coltitle=black, % <--- 标题颜色改为黑色
+    fonttitle=\bfseries,
+    attach title to upper, after title={:\ },
+    before skip=10pt, after skip=10pt
+}{lem}
+
+\newtcbtheorem[number within=section]{thmbox}{Theorem}{
+    colback=red!5, colframe=red!75!black, 
+    coltitle=black, % <--- 标题颜色改为黑色
+    fonttitle=\bfseries,
+    attach title to upper, after title={:\ },
+    before skip=10pt, after skip=10pt
+}{thm}
+
+\newtcbtheorem[number within=section]{corbox}{Corollary}{
+    colback=blue!5, colframe=blue!75!black, 
+    coltitle=black, % <--- 标题颜色改为黑色
+    fonttitle=\bfseries,
+    attach title to upper, after title={:\ },
+    before skip=10pt, after skip=10pt
+}{cor}
+
+% -------------------------------------------------
+% Custom Commands
+% -------------------------------------------------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\gauss}{\mathcal{G}}
+\newcommand{\cam}{\mathcal{C}}
+
+% -------------------------------------------------
+% Title
+% -------------------------------------------------
+\title{\textbf{Structured Notes on 3D Computer Vision}}
+\author{Yiyang Qian}
+\date{\today}
+
+\begin{document}
+
+
+\printnomenclature % 打印符号表
+\maketitle
+\tableofcontents
+\newpage
+
+% =================================================
+\section{Representing a Moving Scene}
+% =================================================
+
+    3D reconstruction: hard! Why? Ill-posed problem, that is, same 2D image could correspond to infinitely many 3D images (Non-Uniqueness).
+\subsection{Motivation}
+
+    To handle this, we study two kinds of transformations/mappings: \textbf{Rigid body motion} and \textbf{Perspective projection}.
+\\
+
+    We will learn/estimate:
+    \begin{itemize}
+        \item \textbf{Motion}: \text{How does a camera move? Use (rotational+prismatic) transformation R, T.} \\
+
+        \item \textbf{Structure}: \text{Where is the object? Use 3D-coordinates X.}
+    \end{itemize}
+    
+
+which is exactly the essence of the SLAM: Simultaneous Localization and Mapping. 
+
+\subsection{Basics}
+    We first study the coordinate representation of 3D space, understand the equivalence of \textbf{Cross Product} and \textbf{Skew-Symmetric Matrices}. \\\\
+
+\begin{defbox}{Points Coordinate Unification}{euclid}
+    \\
+    
+    In 3D-Euclidean space $\mathbb{E}^3$, a point $p \in \mathbb{E}^3$ is represented by coordinates $\mathbf{X} := (X_1,X_2,X_3)^T \in \mathbb{R}^3$ such that $\mathbb{E}^3 \overset{}{\cong} \mathbb{R}^3.$ 
+
+    
+    % 关键：必须写下面这一行，符号表里才会有东西！
+    \nomenclature{$\mathbb{E}^3$}{Three-dimensional Euclidean space}
+
+    \nomenclature{$p\in \mathbb{E}^3 $}{points}
+    \nomenclature{$\mathbf{X} := (X_1,X_2,X_3)^T $}{coordinates}
+\end{defbox}
+
+\begin{defbox}{Bound Vector, Free Vector $u,v $} {bound, free}
+    \\
+    
+    bound vector: consider the origin \\
+    free vector: only magnitude and direction\\
+    Set of free vectors forms a linear space.
+
+    \nomenclature{$v,u \in \mathbb{R}^3$}{Bound Vector or Free Vector}
+\end{defbox}
+
+
+Note the equivalence of Cross Product and Matrix Multiplication: 
+    For any vectors $u, v \in \mathbb{R}^3$, the cross product $u \times v$ can be expressed as a linear mapping:
+    \[ u \times v = \hat{u} v \]
+    where $\hat{u} \in so(3)$ is a \textbf{skew-symmetric matrix}:
+    \[ \hat{u} = \begin{bmatrix} 0 & -u_3 & u_2 \\ u_3 & 0 & -u_1 \\ -u_2 & u_1 & 0 \end{bmatrix} \]
+    The operator $^\wedge$ defines an \textbf{isomorphism} between $\mathbb{R}^3$ and $so(3)$ and its inverse transforms back to $\mathbb{R}^3$: 
+    \begin{equation*}
+        {^\vee}: so(3) \rightarrow \mathbb{R}^3
+    \end{equation*}
+
+    
+    \nomenclature{$\hat{u}$}{Skew-symmetric matrix (Hat operator)}
+    \nomenclature{$so(3)$}{Space of $3 \times 3$ skew-symmetric matrices}
+    \nomenclature{$^{\wedge}$}{Hat operator} 
+    \nomenclature{$^{\vee}$}{Vee operator (Inverse of hat)}
+
+    
+\subsection{Rigid-body Motion and Lie Theory}
+% =================================================
+
+\subsubsection{Definition and Properties}
+
+\begin{defbox}{Rigid-body Motion}{rigid_motion}
+    A map $g_t: \R^3 \to \R^3$ is a rigid-body motion if it preserves:
+    \begin{itemize}
+        \item \textbf{Norm}: $\|g_t(v)\| = \|v\|$ 
+        \item \textbf{Cross Product}: $g_t(u) \times g_t(v) = g_t(u \times v)$ 
+    \end{itemize}
+    
+\end{defbox}
+As its norm preserving, and the equivalence of norm and inner product:
+\begin{equation*}
+    \langle u, v \rangle = \frac{1}{4} \left( \|u+v\|^2 - \|u-v\|^2 \right)
+\end{equation*}
+The inner product is also preserved. Therefore, it also preserves the triple product $\langle u, v \times w \rangle$, meaning it is \textbf{volume-preserving}.
+
+% =================================================
+\subsubsection{A bit more on the Triple Product}
+% =================================================
+
+The \textbf{scalar triple product} (also known as the mixed product or box product) is defined as the dot product of one vector with the cross product of the other two: $\langle a, b \times c \rangle$.
+
+\subsubsection*{Geometric Interpretation}
+Geometrically, the scalar triple product $a \cdot (b \times c)$ represents the \textbf{signed volume} of the parallelepiped defined by the three vectors $a, b, c$. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{Parallelepiped_volume.png}
+    \caption{geometric interpretation of triple product}
+    \label{fig:placeholder}
+\end{figure}
+
+
+
+\subsubsection*{Properties}
+The scalar triple product possesses several key algebraic properties that are frequently used in 3D geometry derivations:
+
+\begin{itemize}
+    \item \textbf{Circular Shift}: The product is invariant under a circular shift of its operands:
+    \[ a \cdot (b \times c) = b \cdot (c \times a) = c \cdot (a \times b) \]
+    
+    \item \textbf{Operator Swapping}: Swapping the positions of the dot and cross operators without re-ordering the operands leaves the product unchanged:
+    \[ a \cdot (b \times c) = (a \times b) \cdot c \]
+    
+    \item \textbf{Operand Swapping}: Swapping any two of the three operands negates the triple product (due to the anticommutativity of the cross product):
+    \[ a \cdot (b \times c) = -a \cdot (c \times b) = -b \cdot (a \times c) = -c \cdot (b \times a) \]
+    
+    \item \textbf{Determinant Representation}: The scalar triple product is equivalent to the determinant of a $3 \times 3$ matrix formed by the three vectors as its rows or columns:
+    \[ a \cdot (b \times c) = \det \begin{pmatrix} a_1 & a_2 & a_3 \\ b_1 & b_2 & b_3 \\ c_1 & c_2 & c_3 \end{pmatrix} = \det \begin{pmatrix} a_1 & b_1 & c_1 \\ a_2 & b_2 & c_2 \\ a_3 & b_3 & c_3 \end{pmatrix} = \det [a, b, c] \]
+\end{itemize}
+
+\nomenclature{$\langle a, b \times c \rangle$}{Scalar triple product (Mixed product)}
+
+\begin{thmbox}{Mathematical Representation}{so3_rep}
+    \\
+    Any rigid-body motion $g_t(x)$ can be represented by a translation $T \in \R^3$ and a rotation $R \in SO(3)$:
+    \[ g_t(x) = Rx + T \]
+    where the \textbf{Special Orthogonal Group} is defined as:
+    \[ SO(3) := \{ R \in \R^{3 \times 3} \mid R^T R = I, \det(R) = +1 \} \]
+    \nomenclature{$SO(3)$}{Special Orthogonal Group (Rotation matrices)}
+
+\end{thmbox}
+
+Proof: See slide page 9. 
+
+\subsubsection{Exponential Coordinates of Rotation}
+    Exponential Coordinates of Rotation serves as the bridge connecting \textbf{rotational velocity} and \textbf{rotational state}. It answers the question: if we know an object's instantaneous rotational velocity, what will its rotation matrix looks like after a certain period of time?
+    \\
+    
+    This section derives the relationship between a continuous rotation $R(t) \in SO(3)$ and its derivative.
+    \\
+    
+    Consider a family of rotation matrices $R(t) \in SO(3)$ with $R(0) = I$: 
+\\
+
+\textbf{1. Derivation of the Skew-Symmetric Constraint}\\
+
+Since $R(t)R(t)^T = I$ for all $t$, differentiating with respect to $t$ gives:
+\[ \frac{d}{dt}(R R^T) = \dot{R}R^T + R\dot{R}^T = 0 \implies \dot{R}R^T = -(\dot{R}R^T)^T \]
+This implies that $\dot{R}R^T$ is a \textbf{skew-symmetric matrix}. Thus, there exists a angular velocity vector $\omega(t) \in \R^3$ and using the hat operator such that:
+\[ \dot{R}(t)R^T(t) = \hat{\omega}(t) \quad \iff \quad \dot{R}(t) = \hat{\omega}(t)R(t) \] \\
+
+\textbf{2. Infinitesimal Rotation}\\
+
+At the identity $R(0) = I$, the derivative simplifies to $\dot{R}(0) = \hat{\omega}(0)$. The above calculations showed that the effect of any infinitesimal rotation can be approximated by an element from the space of skew-symmetric matrices.
+
+For an infinitesimal time step $dt$, the rotation matrix can be approximated as:
+\[ R(dt) \approx R(0)+ \dot{R}(0)dt= I +\hat{\omega}(0)dt \]
+This is the \textbf{first-order approximation} of a rotation. \\
+
+\textbf{3. The Exponential Map (Preview)} \\
+If $\omega$ is constant, the differential equation $\dot{R} = \hat{\omega}R$ has the solution:
+\[ R(t) = \exp(\hat{\omega}t) \]
+The vector $\xi = \omega t \in \R^3$ is called the \textbf{exponential coordinates} of the rotation.
+
+\nomenclature{$\omega$}{Angular velocity vector}
+\nomenclature{$\dot{R}$}{Derivative of rotation matrix (Time rate of change)}
+
+\subsubsection{The Algebraic Structure of $so(3)$}
+
+\begin{defbox}{Lie Group and Lie Algebra and their physical interpretation}{lie_theory}
+    \begin{itemize}
+        \item \textbf{Lie Group ($SO(3)$)}: A smooth manifold that is also a group.
+        \item \textbf{Lie Algebra ($so(3)$)}: The tangent space at the identity of the Lie group.
+        \item \textbf{Lie Bracket}: $[\hat{\omega}, \hat{v}] := \hat{\omega}\hat{v} - \hat{v}\hat{\omega}$. It is the "multiplication" in the scope of Lie Algebra and  emphasizes the non-commutativity of the algebra. The algebraic structure is preserved as well.  
+    \end{itemize}
+\end{defbox}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{smooth manifold.png}
+    \caption{smooth manifold representing a Lie Group}
+    \label{fig:placeholder}
+
+\end{figure}
+
+    Intuition: $SO(3)$ represents "position" (which point you occupy on the manifold).
+
+    $so(3)$ represents "velocity" (the direction in which you are moving at the identity element).
+    \\
+    
+    The significance of the "tangent space" lies in this: it transforms complex, nonlinear constraints (the multiplication of rotation matrices) into simple, linear-space operations (the addition of skew-symmetric matrices). This is precisely why we prefer to perform optimization within the framework of Lie algebras in the fields of SLAM and 3D vision.
+    \\
+    
+    While $so(3)$ is a vector space (allowing $\hat{u} + \hat{v}$), its identity as a \textbf{Lie Algebra} comes from the addition of a multiplicative operation called the \textbf{Lie Bracket}.
+
+\subsubsection*{1. The Lie Bracket}
+For any $\hat{u}, \hat{v} \in so(3)$, the Lie bracket is defined as the commutator:
+\begin{equation*}
+    so(3) \times so(3) \rightarrow so(3)
+\end{equation*}
+\[ [\hat{u}, \hat{v}] = \hat{u}\hat{v} - \hat{v}\hat{u} \]
+Key properties:
+\begin{itemize}
+    \item \textbf{Closure}: The result $[\hat{u}, \hat{v}]$ is always a skew-symmetric matrix (belongs to $so(3)$).
+    \item \textbf{Non-commutativity}: In general, $[\hat{u}, \hat{v}] \neq 0$, reflecting that 3D rotations do not commute.
+    \item \textbf{Relation to Cross Product}: For $so(3)$, the bracket is isomorphic to the cross product in $\R^3$:
+    \[ [\hat{u}, \hat{v}] = \widehat{u \times v} \]
+\end{itemize}
+
+\subsubsection*{2. Why "Algebra"?}
+In mathematics, an \textbf{algebra} is a vector space equipped with a bilinear product. In this course:
+\begin{itemize}
+    \item \textbf{Lie Group $SO(3)$}: Represents the \textit{global} state of rotation (multiplicative group).
+    \item \textbf{Lie Algebra $so(3)$}: Represents \textit{local} tangent velocities (vector space + Lie bracket).
+\end{itemize}
+
+\nomenclature{$[\cdot, \cdot]$}{Lie bracket (Commutator)}
+
+\subsubsection{The Exponential Map}
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+
+\end{document}
