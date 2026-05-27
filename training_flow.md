@@ -1,3 +1,4 @@
+```mermaid
 graph TD
     %% 核心数据流
     Input_ut[Input: u_t] --> Enc[Encoder]
